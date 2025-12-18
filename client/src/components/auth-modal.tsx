@@ -8,16 +8,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Chrome, Linkedin } from "lucide-react";
-import { useAuth } from "@/lib/auth";
 import { useState } from "react";
 
 export function AuthModal({ trigger }: { trigger?: React.ReactNode }) {
-  const { login } = useAuth();
   const [open, setOpen] = useState(false);
 
-  const handleLogin = (provider: "google" | "linkedin") => {
-    login(provider);
-    setOpen(false);
+  const handleLogin = () => {
+    window.location.href = "/api/login";
   };
 
   return (
@@ -36,20 +33,11 @@ export function AuthModal({ trigger }: { trigger?: React.ReactNode }) {
           <Button 
             variant="outline" 
             className="h-12 border-white/10 hover:bg-white/5 hover:text-white justify-start pl-4 gap-3 relative overflow-hidden group"
-            onClick={() => handleLogin("google")}
+            onClick={handleLogin}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-yellow-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             <Chrome className="w-5 h-5 text-red-500" />
-            <span className="flex-1 text-left">Continue with Google</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            className="h-12 border-white/10 hover:bg-white/5 hover:text-white justify-start pl-4 gap-3 relative overflow-hidden group"
-            onClick={() => handleLogin("linkedin")}
-          >
-             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <Linkedin className="w-5 h-5 text-blue-500" />
-            <span className="flex-1 text-left">Continue with LinkedIn</span>
+            <span className="flex-1 text-left">Continue with your Identity</span>
           </Button>
         </div>
         <div className="text-xs text-center text-muted-foreground">

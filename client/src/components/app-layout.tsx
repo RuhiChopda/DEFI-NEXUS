@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { 
   LayoutDashboard, 
@@ -13,10 +13,11 @@ import {
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { User } from "@shared/schema";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const navItems = [
@@ -24,6 +25,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/markets", label: "Markets", icon: ArrowRightLeft },
     { href: "/portfolio", label: "Portfolio", icon: Wallet },
   ];
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
+  };
+
+  const typedUser = user as User | undefined;
 
   const NavContent = () => (
     <div className="flex flex-col h-full">
@@ -56,18 +63,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="p-4 border-t border-white/5">
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-white/5 mb-2">
           <Avatar className="w-8 h-8 border border-primary/20">
-            <AvatarImage src={user?.avatar} />
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarImage src={typedUser?.profileImageUrl || ""} alt={typedUser?.firstName || ""} />
+            <AvatarFallback>{typedUser?.firstName?.charAt(0) || "U"}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate text-white">{user?.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            <p className="text-sm font-medium truncate text-white">{typedUser?.firstName} {typedUser?.lastName}</p>
+            <p className="text-xs text-muted-foreground truncate">{typedUser?.email}</p>
           </div>
         </div>
         <Button 
           variant="ghost" 
           className="w-full justify-start gap-3 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
-          onClick={logout}
+          onClick={handleLogout}
         >
           <LogOut className="w-5 h-5" />
           Logout
