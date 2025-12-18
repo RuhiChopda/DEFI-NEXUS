@@ -79,15 +79,15 @@ export type User = typeof users.$inferSelect;
 
 // Types for Lending
 export type LendingPosition = typeof lendingPositions.$inferSelect;
-export const insertLendingSchema = createInsertSchema(lendingPositions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLendingSchema = createInsertSchema(lendingPositions).omit({ id: true, createdAt: true, updatedAt: true, userId: true });
 export type InsertLending = z.infer<typeof insertLendingSchema>;
 
 // Types for Borrowing
 export type BorrowingPosition = typeof borrowingPositions.$inferSelect;
-export const insertBorrowingSchema = createInsertSchema(borrowingPositions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertBorrowingSchema = createInsertSchema(borrowingPositions).omit({ id: true, createdAt: true, updatedAt: true, userId: true, healthFactor: true });
 export type InsertBorrowing = z.infer<typeof insertBorrowingSchema>;
 
 // Types for Transactions
 export type Transaction = typeof transactions.$inferSelect;
-export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, createdAt: true });
+export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, createdAt: true, userId: true });
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;

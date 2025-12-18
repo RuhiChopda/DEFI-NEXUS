@@ -5,8 +5,8 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import {
   insertLendingSchema,
   insertBorrowingSchema,
-  insertTransactionSchema,
 } from "@shared/schema";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -33,12 +33,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const lending = await storage.getLendingPositions(userId);
       const borrowing = await storage.getBorrowingPositions(userId);
-      const transactions = await storage.getTransactions(userId);
+      const txns = await storage.getTransactions(userId);
 
       res.json({
         lending,
         borrowing,
-        transactions,
+        transactions: txns,
       });
     } catch (error) {
       console.error("Error fetching dashboard:", error);
@@ -52,14 +52,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const validated = insertLendingSchema.parse(req.body);
 
-      const position = await storage.createLendingPosition({
-        ...validated,
-        userId,
-      });
+      const position = await storage.createLendingPosition(userId, validated);
 
       // Log transaction
-      await storage.createTransaction({
-        userId,
+      await storage.createTransaction(userId, {
         type: "supply",
         asset: validated.asset,
         amount: validated.amount,
@@ -68,7 +64,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(position);
     } catch (error: any) {
       console.error("Error creating lending position:", error);
-      res.status(400).json({ message: error.message });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request", errors: error.errors });
+      }
+      res.status(400).json({ message: error.message || "Failed to create lending position" });
     }
   });
 
@@ -102,14 +101,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const validated = insertBorrowingSchema.parse(req.body);
 
-      const position = await storage.createBorrowingPosition({
-        ...validated,
-        userId,
-      });
+      const position = await storage.createBorrowingPosition(userId, validated);
 
       // Log transaction
-      await storage.createTransaction({
-        userId,
+      await storage.createTransaction(userId, {
         type: "borrow",
         asset: validated.asset,
         amount: validated.amount,
@@ -118,7 +113,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(position);
     } catch (error: any) {
       console.error("Error creating borrowing position:", error);
-      res.status(400).json({ message: error.message });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request", errors: error.errors });
+      }
+      res.status(400).json({ message: error.message || "Failed to create borrowing position" });
     }
   });
 

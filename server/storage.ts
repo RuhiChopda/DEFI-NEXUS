@@ -21,17 +21,17 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
 
   // Lending operations
-  createLendingPosition(position: InsertLending): Promise<LendingPosition>;
+  createLendingPosition(userId: string, position: InsertLending): Promise<LendingPosition>;
   getLendingPositions(userId: string): Promise<LendingPosition[]>;
   deleteLendingPosition(id: number): Promise<void>;
 
   // Borrowing operations
-  createBorrowingPosition(position: InsertBorrowing): Promise<BorrowingPosition>;
+  createBorrowingPosition(userId: string, position: InsertBorrowing): Promise<BorrowingPosition>;
   getBorrowingPositions(userId: string): Promise<BorrowingPosition[]>;
   deleteBorrowingPosition(id: number): Promise<void>;
 
   // Transaction operations
-  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  createTransaction(userId: string, transaction: InsertTransaction): Promise<Transaction>;
   getTransactions(userId: string): Promise<Transaction[]>;
 }
 
@@ -59,8 +59,8 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createLendingPosition(position: InsertLending): Promise<LendingPosition> {
-    const [result] = await db.insert(lendingPositions).values(position).returning();
+  async createLendingPosition(userId: string, position: InsertLending): Promise<LendingPosition> {
+    const [result] = await db.insert(lendingPositions).values({ userId, ...position }).returning();
     return result;
   }
 
@@ -75,8 +75,8 @@ export class DatabaseStorage implements IStorage {
     await db.delete(lendingPositions).where(eq(lendingPositions.id, id));
   }
 
-  async createBorrowingPosition(position: InsertBorrowing): Promise<BorrowingPosition> {
-    const [result] = await db.insert(borrowingPositions).values(position).returning();
+  async createBorrowingPosition(userId: string, position: InsertBorrowing): Promise<BorrowingPosition> {
+    const [result] = await db.insert(borrowingPositions).values({ userId, ...position }).returning();
     return result;
   }
 
@@ -91,8 +91,8 @@ export class DatabaseStorage implements IStorage {
     await db.delete(borrowingPositions).where(eq(borrowingPositions.id, id));
   }
 
-  async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
-    const [result] = await db.insert(transactions).values(transaction).returning();
+  async createTransaction(userId: string, transaction: InsertTransaction): Promise<Transaction> {
+    const [result] = await db.insert(transactions).values({ userId, ...transaction }).returning();
     return result;
   }
 
