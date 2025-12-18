@@ -1,10 +1,13 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getQueryFn } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
+import type { LendingPosition, BorrowingPosition } from "@shared/schema";
 
 const assets = [
   { symbol: "ETH", name: "Ethereum", supplyApy: "3.2%", borrowApy: "4.5%", liquidity: "$420M", price: "$2,450.00" },
@@ -14,20 +17,62 @@ const assets = [
   { symbol: "AAVE", name: "Aave", supplyApy: "4.2%", borrowApy: "5.5%", liquidity: "$80M", price: "$95.40" },
 ];
 
-function ActionModal({ asset, type }: { asset: typeof assets[0], type: "Supply" | "Borrow" }) {
+function ActionModal({ asset, type, userPositions }: { asset: typeof assets[0], type: "Supply" | "Borrow", userPositions?: (LendingPosition | BorrowingPosition)[] }) {
   const [amount, setAmount] = useState("");
+  const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const userPosition = userPositions?.find((p: any) => p.asset === asset.symbol);
+  const existingAmount = userPosition ? parseFloat(userPosition.amount) : 0;
+
+  const mutation = useMutation({
+    mutationFn: async (data: any) => {
+      const endpoint = type === "Supply" ? "/api/lending" : "/api/borrowing";
+      const res = await apiRequest("POST", endpoint, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: `Successfully ${type.toLowerCase()}ed ${amount} ${asset.symbol}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/lending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/borrowing"] });
+      setAmount("");
+      setOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || `Failed to ${type.toLowerCase()}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleAction = () => {
-    toast({
-      title: "Transaction Submitted",
-      description: `Successfully ${type.toLowerCase()}ed ${amount} ${asset.symbol}`,
+    if (!amount || parseFloat(amount) <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const apy = parseFloat(type === "Supply" ? asset.supplyApy : asset.borrowApy);
+    
+    mutation.mutate({
+      asset: asset.symbol,
+      amount,
+      apy: apy.toString(),
     });
-    setAmount("");
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button 
           variant={type === "Supply" ? "default" : "secondary"} 
@@ -44,7 +89,7 @@ function ActionModal({ asset, type }: { asset: typeof assets[0], type: "Supply" 
         <div className="space-y-4 py-4">
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>Amount</span>
-            <span>Balance: 0.00 {asset.symbol}</span>
+            <span>Current: {existingAmount.toFixed(4)} {asset.symbol}</span>
           </div>
           <div className="relative">
             <Input 
@@ -53,6 +98,7 @@ function ActionModal({ asset, type }: { asset: typeof assets[0], type: "Supply" 
               className="pr-16 text-lg bg-black/20 border-white/10 h-14"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              disabled={mutation.isPending}
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
               {asset.symbol}
@@ -61,11 +107,15 @@ function ActionModal({ asset, type }: { asset: typeof assets[0], type: "Supply" 
           <div className="grid grid-cols-2 gap-4 text-sm bg-white/5 p-4 rounded-lg">
             <div className="text-muted-foreground">APY</div>
             <div className="text-right font-mono text-primary">{type === "Supply" ? asset.supplyApy : asset.borrowApy}</div>
-            <div className="text-muted-foreground">Health Factor</div>
-            <div className="text-right font-mono text-green-500">1.05</div>
+            <div className="text-muted-foreground">Your {type}</div>
+            <div className="text-right font-mono text-green-500">{existingAmount.toFixed(4)}</div>
           </div>
-          <Button className="w-full neon-glow font-bold text-lg h-12" onClick={handleAction}>
-            Confirm {type}
+          <Button 
+            className="w-full neon-glow font-bold text-lg h-12" 
+            onClick={handleAction}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? "Processing..." : `Confirm ${type}`}
           </Button>
         </div>
       </DialogContent>
@@ -74,6 +124,21 @@ function ActionModal({ asset, type }: { asset: typeof assets[0], type: "Supply" 
 }
 
 export function Markets() {
+  const { data: lending } = useQuery({
+    queryKey: ["/api/lending"],
+    queryFn: getQueryFn({ on401: "throw" }),
+    retry: false,
+  });
+
+  const { data: borrowing } = useQuery({
+    queryKey: ["/api/borrowing"],
+    queryFn: getQueryFn({ on401: "throw" }),
+    retry: false,
+  });
+
+  const lendingPositions = (lending as LendingPosition[]) || [];
+  const borrowingPositions = (borrowing as BorrowingPosition[]) || [];
+
   return (
     <div className="space-y-8">
       <div>
@@ -113,8 +178,8 @@ export function Markets() {
                 <TableCell className="text-right font-mono text-orange-400">{asset.borrowApy}</TableCell>
                 <TableCell className="text-center">
                   <div className="flex justify-center gap-2">
-                    <ActionModal asset={asset} type="Supply" />
-                    <ActionModal asset={asset} type="Borrow" />
+                    <ActionModal asset={asset} type="Supply" userPositions={lendingPositions} />
+                    <ActionModal asset={asset} type="Borrow" userPositions={borrowingPositions} />
                   </div>
                 </TableCell>
               </TableRow>
